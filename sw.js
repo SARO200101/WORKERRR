@@ -1,4 +1,4 @@
-const CACHE_NAME = "officina-cache-v8";
+const CACHE_NAME = "officina-cache-v9";
 const ASSETS = [
   "/",
   "/index.html",

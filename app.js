@@ -60,6 +60,21 @@ const mergeById = (localItems, cloudItems, tombstones = null) => {
   return tombstones ? applyTombstones(merged, tombstones) : merged;
 };
 
+const mergeTombstones = (localTombstones, cloudTombstones) => {
+  const map = new Map();
+  localTombstones.forEach((t) => {
+    map.set(t.id, { id: t.id, deletedAt: t.deletedAt || 0 });
+  });
+  cloudTombstones.forEach((t) => {
+    const deletedAt = t.deletedAt || 0;
+    const existing = map.get(t.id);
+    if (!existing || deletedAt > existing.deletedAt) {
+      map.set(t.id, { id: t.id, deletedAt });
+    }
+  });
+  return Array.from(map.values());
+};
+
 const state = {
   investimenti: loadData(STORAGE_KEYS.investimenti),
   trades: loadData(STORAGE_KEYS.trades),
@@ -507,6 +522,7 @@ const uploadToCloud = async () => {
     investimenti: state.investimenti,
     trades: state.trades,
     promemoria: state.promemoria,
+    deleted: deletedState,
     updatedAt: Date.now(),
   };
 
@@ -524,13 +540,39 @@ const uploadToCloud = async () => {
     const cloudInvestimenti = conflict.data?.investimenti || [];
     const cloudTrades = conflict.data?.trades || [];
     const cloudPromemoria = conflict.data?.promemoria || [];
+    const cloudDeleted = conflict.data?.deleted || {
+      investimenti: [],
+      trades: [],
+      promemoria: [],
+    };
     lastCloudUpdatedAt = conflict.updatedAt || lastCloudUpdatedAt;
-    state.investimenti = mergeById(state.investimenti, cloudInvestimenti);
-    state.trades = mergeById(state.trades, cloudTrades);
-    state.promemoria = mergeById(state.promemoria, cloudPromemoria);
+    deletedState.investimenti = mergeTombstones(
+      deletedState.investimenti,
+      cloudDeleted.investimenti
+    );
+    deletedState.trades = mergeTombstones(
+      deletedState.trades,
+      cloudDeleted.trades
+    );
+    deletedState.promemoria = mergeTombstones(
+      deletedState.promemoria,
+      cloudDeleted.promemoria
+    );
+    state.investimenti = mergeById(
+      state.investimenti,
+      cloudInvestimenti,
+      deletedState.investimenti
+    );
+    state.trades = mergeById(state.trades, cloudTrades, deletedState.trades);
+    state.promemoria = mergeById(
+      state.promemoria,
+      cloudPromemoria,
+      deletedState.promemoria
+    );
     saveData(STORAGE_KEYS.investimenti, state.investimenti);
     saveData(STORAGE_KEYS.trades, state.trades);
     saveData(STORAGE_KEYS.promemoria, state.promemoria);
+    saveDeleted();
     aggiornaUI();
     setSyncStatus("Cloud piu recente");
     return;
@@ -565,12 +607,38 @@ const downloadFromCloud = async () => {
   const cloudInvestimenti = data.data.investimenti || [];
   const cloudTrades = data.data.trades || [];
   const cloudPromemoria = data.data.promemoria || [];
-  state.investimenti = mergeById(state.investimenti, cloudInvestimenti);
-  state.trades = mergeById(state.trades, cloudTrades);
-  state.promemoria = mergeById(state.promemoria, cloudPromemoria);
+  const cloudDeleted = data.data.deleted || {
+    investimenti: [],
+    trades: [],
+    promemoria: [],
+  };
+  deletedState.investimenti = mergeTombstones(
+    deletedState.investimenti,
+    cloudDeleted.investimenti
+  );
+  deletedState.trades = mergeTombstones(
+    deletedState.trades,
+    cloudDeleted.trades
+  );
+  deletedState.promemoria = mergeTombstones(
+    deletedState.promemoria,
+    cloudDeleted.promemoria
+  );
+  state.investimenti = mergeById(
+    state.investimenti,
+    cloudInvestimenti,
+    deletedState.investimenti
+  );
+  state.trades = mergeById(state.trades, cloudTrades, deletedState.trades);
+  state.promemoria = mergeById(
+    state.promemoria,
+    cloudPromemoria,
+    deletedState.promemoria
+  );
   saveData(STORAGE_KEYS.investimenti, state.investimenti);
   saveData(STORAGE_KEYS.trades, state.trades);
   saveData(STORAGE_KEYS.promemoria, state.promemoria);
+  saveDeleted();
   aggiornaUI();
   setSyncStatus("Sincronizzato");
   scheduleUpload();

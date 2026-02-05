@@ -48,9 +48,6 @@ const elementi = {
   totaleRicaviCliente: document.getElementById("totale-ricavi-cliente"),
   totaleDaIncassare: document.getElementById("totale-da-incassare"),
   totaleMargine: document.getElementById("totale-margine"),
-  resetInvestimenti: document.getElementById("reset-investimenti"),
-  resetTrades: document.getElementById("reset-trades"),
-  resetPromemoria: document.getElementById("reset-promemoria"),
   filterNonPagati: document.getElementById("filter-non-pagati"),
   syncStatus: document.getElementById("sync-status"),
   promemoriaSubmit: document.getElementById("promemoria-submit"),
@@ -398,30 +395,6 @@ elementi.formPromemoria.addEventListener("submit", (event) => {
 
   saveData(STORAGE_KEYS.promemoria, state.promemoria);
   setPromemoriaEditMode(null);
-  aggiornaUI();
-  scheduleUpload();
-});
-
-elementi.resetInvestimenti.addEventListener("click", () => {
-  if (!confirm("Vuoi cancellare tutti gli investimenti?")) return;
-  state.investimenti = [];
-  saveData(STORAGE_KEYS.investimenti, state.investimenti);
-  aggiornaUI();
-  scheduleUpload();
-});
-
-elementi.resetTrades.addEventListener("click", () => {
-  if (!confirm("Vuoi cancellare tutti gli acquisti e vendite?")) return;
-  state.trades = [];
-  saveData(STORAGE_KEYS.trades, state.trades);
-  aggiornaUI();
-  scheduleUpload();
-});
-
-elementi.resetPromemoria.addEventListener("click", () => {
-  if (!confirm("Vuoi cancellare tutti i promemoria?")) return;
-  state.promemoria = [];
-  saveData(STORAGE_KEYS.promemoria, state.promemoria);
   aggiornaUI();
   scheduleUpload();
 });

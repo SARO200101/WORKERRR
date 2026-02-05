@@ -518,3 +518,13 @@ downloadFromCloud().catch(() => setSyncStatus("Errore download"));
 setInterval(() => {
   uploadToCloud().catch(() => setSyncStatus("Errore upload"));
 }, 60000);
+
+setInterval(() => {
+  downloadFromCloud().catch(() => setSyncStatus("Errore download"));
+}, 45000);
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    downloadFromCloud().catch(() => setSyncStatus("Errore download"));
+  }
+});

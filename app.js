@@ -47,12 +47,11 @@ const elementi = {
   resetInvestimenti: document.getElementById("reset-investimenti"),
   resetTrades: document.getElementById("reset-trades"),
   resetPromemoria: document.getElementById("reset-promemoria"),
-  syncKey: document.getElementById("sync-key"),
   syncStatus: document.getElementById("sync-status"),
 };
 
 const getSyncKey = () => {
-  const key = elementi.syncKey.value.trim() || "principale";
+  const key = "principale";
   localStorage.setItem(STORAGE_KEYS.syncKey, key);
   return key;
 };
@@ -386,15 +385,7 @@ const scheduleUpload = (() => {
 window.addEventListener("online", () => setSyncStatus("Online"));
 window.addEventListener("offline", () => setSyncStatus("Offline"));
 
-const savedSyncKey = localStorage.getItem(STORAGE_KEYS.syncKey);
-if (savedSyncKey) {
-  elementi.syncKey.value = savedSyncKey;
-}
-
-elementi.syncKey.addEventListener("change", () => {
-  getSyncKey();
-  downloadFromCloud().catch(() => setSyncStatus("Errore download"));
-});
+getSyncKey();
 
 initTabs();
 aggiornaUI();

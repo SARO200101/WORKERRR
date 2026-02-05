@@ -48,8 +48,6 @@ const elementi = {
   resetTrades: document.getElementById("reset-trades"),
   resetPromemoria: document.getElementById("reset-promemoria"),
   syncKey: document.getElementById("sync-key"),
-  syncUpload: document.getElementById("sync-upload"),
-  syncDownload: document.getElementById("sync-download"),
   syncStatus: document.getElementById("sync-status"),
 };
 
@@ -114,6 +112,7 @@ const renderInvestimenti = () => {
         state.investimenti = state.investimenti.filter((x) => x.id !== t.id);
         saveData(STORAGE_KEYS.investimenti, state.investimenti);
         aggiornaUI();
+        scheduleUpload();
       });
 
       elementi.listaInvestimenti.appendChild(item);
@@ -157,6 +156,7 @@ const renderTrades = () => {
         state.trades = state.trades.filter((x) => x.id !== t.id);
         saveData(STORAGE_KEYS.trades, state.trades);
         aggiornaUI();
+        scheduleUpload();
       });
 
       elementi.listaTrades.appendChild(item);
@@ -201,12 +201,14 @@ const renderPromemoria = () => {
         p.completato = !p.completato;
         saveData(STORAGE_KEYS.promemoria, state.promemoria);
         renderPromemoria();
+        scheduleUpload();
       });
 
       item.querySelector("[data-remove]").addEventListener("click", () => {
         state.promemoria = state.promemoria.filter((x) => x.id !== p.id);
         saveData(STORAGE_KEYS.promemoria, state.promemoria);
         renderPromemoria();
+        scheduleUpload();
       });
 
       elementi.listaPromemoria.appendChild(item);
@@ -246,6 +248,7 @@ elementi.formInvestimento.addEventListener("submit", (event) => {
   saveData(STORAGE_KEYS.investimenti, state.investimenti);
   event.target.reset();
   aggiornaUI();
+  scheduleUpload();
 });
 
 elementi.formTrade.addEventListener("submit", (event) => {
@@ -264,6 +267,7 @@ elementi.formTrade.addEventListener("submit", (event) => {
   saveData(STORAGE_KEYS.trades, state.trades);
   event.target.reset();
   aggiornaUI();
+  scheduleUpload();
 });
 
 elementi.formPromemoria.addEventListener("submit", (event) => {
@@ -282,6 +286,7 @@ elementi.formPromemoria.addEventListener("submit", (event) => {
   saveData(STORAGE_KEYS.promemoria, state.promemoria);
   event.target.reset();
   renderPromemoria();
+  scheduleUpload();
 });
 
 elementi.resetInvestimenti.addEventListener("click", () => {
@@ -289,6 +294,7 @@ elementi.resetInvestimenti.addEventListener("click", () => {
   state.investimenti = [];
   saveData(STORAGE_KEYS.investimenti, state.investimenti);
   aggiornaUI();
+  scheduleUpload();
 });
 
 elementi.resetTrades.addEventListener("click", () => {
@@ -296,6 +302,7 @@ elementi.resetTrades.addEventListener("click", () => {
   state.trades = [];
   saveData(STORAGE_KEYS.trades, state.trades);
   aggiornaUI();
+  scheduleUpload();
 });
 
 elementi.resetPromemoria.addEventListener("click", () => {
@@ -303,6 +310,7 @@ elementi.resetPromemoria.addEventListener("click", () => {
   state.promemoria = [];
   saveData(STORAGE_KEYS.promemoria, state.promemoria);
   renderPromemoria();
+  scheduleUpload();
 });
 
 if ("serviceWorker" in navigator) {
@@ -336,7 +344,7 @@ const uploadToCloud = async () => {
     setSyncStatus("Errore upload");
     return;
   }
-  setSyncStatus("Caricamento completato");
+  setSyncStatus("Sincronizzato");
 };
 
 const downloadFromCloud = async () => {
@@ -355,11 +363,6 @@ const downloadFromCloud = async () => {
     setSyncStatus("Nessun dato nel cloud");
     return;
   }
-  if (!confirm("Sovrascrivere i dati locali con quelli del cloud?")) {
-    setSyncStatus("Download annullato");
-    return;
-  }
-
   state.investimenti = data.data.investimenti || [];
   state.trades = data.data.trades || [];
   state.promemoria = data.data.promemoria || [];
@@ -367,16 +370,18 @@ const downloadFromCloud = async () => {
   saveData(STORAGE_KEYS.trades, state.trades);
   saveData(STORAGE_KEYS.promemoria, state.promemoria);
   aggiornaUI();
-  setSyncStatus("Download completato");
+  setSyncStatus("Sincronizzato");
 };
 
-elementi.syncUpload.addEventListener("click", () => {
-  uploadToCloud().catch(() => setSyncStatus("Errore upload"));
-});
-
-elementi.syncDownload.addEventListener("click", () => {
-  downloadFromCloud().catch(() => setSyncStatus("Errore download"));
-});
+const scheduleUpload = (() => {
+  let timerId;
+  return () => {
+    if (timerId) clearTimeout(timerId);
+    timerId = setTimeout(() => {
+      uploadToCloud().catch(() => setSyncStatus("Errore upload"));
+    }, 1200);
+  };
+})();
 
 window.addEventListener("online", () => setSyncStatus("Online"));
 window.addEventListener("offline", () => setSyncStatus("Offline"));
@@ -386,6 +391,16 @@ if (savedSyncKey) {
   elementi.syncKey.value = savedSyncKey;
 }
 
+elementi.syncKey.addEventListener("change", () => {
+  getSyncKey();
+  downloadFromCloud().catch(() => setSyncStatus("Errore download"));
+});
+
 initTabs();
 aggiornaUI();
 setSyncStatus(navigator.onLine ? "Online" : "Offline");
+
+downloadFromCloud().catch(() => setSyncStatus("Errore download"));
+setInterval(() => {
+  uploadToCloud().catch(() => setSyncStatus("Errore upload"));
+}, 60000);

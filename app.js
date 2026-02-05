@@ -461,6 +461,7 @@ const uploadToCloud = async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      cache: "no-store",
     }
   );
 
@@ -477,7 +478,9 @@ const downloadFromCloud = async () => {
     return;
   }
   setSyncStatus("Download in corso...");
-  const response = await fetch(`/api/sync?key=${encodeURIComponent(getSyncKey())}`);
+  const response = await fetch(`/api/sync?key=${encodeURIComponent(getSyncKey())}`,
+    { cache: "no-store" }
+  );
   if (!response.ok) {
     setSyncStatus("Errore download");
     return;

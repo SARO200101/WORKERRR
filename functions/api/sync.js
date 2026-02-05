@@ -6,7 +6,10 @@ export async function onRequest(context) {
   if (!key) {
     return new Response(JSON.stringify({ error: "Missing key" }), {
       status: 400,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
     });
   }
 
@@ -17,7 +20,12 @@ export async function onRequest(context) {
 
     return new Response(
       JSON.stringify({ data: result ? JSON.parse(result.data) : null }),
-      { headers: { "Content-Type": "application/json" } }
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        },
+      }
     );
   }
 
@@ -33,12 +41,18 @@ export async function onRequest(context) {
       .run();
 
     return new Response(JSON.stringify({ ok: true }), {
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
     });
   }
 
   return new Response(JSON.stringify({ error: "Method not allowed" }), {
     status: 405,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+    },
   });
 }

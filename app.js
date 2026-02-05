@@ -82,7 +82,17 @@ let lastCloudUpdatedAt = 0;
 
 const getLocalUpdatedAt = () => {
   const allItems = [...state.investimenti, ...state.trades, ...state.promemoria];
-  return allItems.reduce((acc, item) => Math.max(acc, item.updatedAt || 0), 0);
+  const allDeletes = [
+    ...deletedState.investimenti,
+    ...deletedState.trades,
+    ...deletedState.promemoria,
+  ];
+  const maxItems = allItems.reduce((acc, item) => Math.max(acc, item.updatedAt || 0), 0);
+  const maxDeletes = allDeletes.reduce(
+    (acc, item) => Math.max(acc, item.deletedAt || 0),
+    0
+  );
+  return Math.max(maxItems, maxDeletes);
 };
 
 const isCloudEmpty = (payload) => {
@@ -573,6 +583,10 @@ const uploadToCloud = async () => {
 const downloadFromCloud = async () => {
   if (!navigator.onLine) {
     setSyncStatus("Senza rete");
+    return;
+  }
+  if (getLocalUpdatedAt() > lastCloudUpdatedAt) {
+    setSyncStatus("Upload in coda");
     return;
   }
   setSyncStatus("Download in corso...");

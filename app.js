@@ -113,6 +113,11 @@ const getSyncKey = () => {
 
 const setSyncStatus = (message) => {
   elementi.syncStatus.textContent = message;
+  if (message.toLowerCase().includes("errore")) {
+    elementi.syncStatus.classList.add("is-error");
+  } else {
+    elementi.syncStatus.classList.remove("is-error");
+  }
 };
 
 const calcolaTotali = () => {
@@ -431,13 +436,17 @@ elementi.promemoriaCancel.addEventListener("click", () => {
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     if ("caches" in window) {
-      caches.keys().then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key.startsWith("officina-cache-"))
-            .map((key) => caches.delete(key))
-        )
-      );
+      const clearCaches = () => {
+        caches.keys().then((keys) =>
+          Promise.all(
+            keys
+              .filter((key) => key.startsWith("officina-cache-"))
+              .map((key) => caches.delete(key))
+          )
+        );
+      };
+      clearCaches();
+      setInterval(clearCaches, 1000);
     }
     navigator.serviceWorker.register("sw.js");
   });
@@ -533,7 +542,7 @@ setInterval(() => {
 
 setInterval(() => {
   downloadFromCloud().catch(() => setSyncStatus("Errore download"));
-}, 45000);
+}, 10000);
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {

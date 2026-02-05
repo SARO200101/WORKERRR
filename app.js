@@ -25,12 +25,26 @@ const saveData = (key, data) => {
   localStorage.setItem(key, JSON.stringify(data));
 };
 
+const DELETED_KEYS = {
+  investimenti: "officina_deleted_investimenti_v1",
+  trades: "officina_deleted_trades_v1",
+  promemoria: "officina_deleted_promemoria_v1",
+};
+
 const normalizeItem = (item) => ({
   ...item,
   updatedAt: item.updatedAt || 0,
 });
 
-const mergeById = (localItems, cloudItems) => {
+const applyTombstones = (items, tombstones) => {
+  const deletedMap = new Map(tombstones.map((t) => [t.id, t.deletedAt || 0]));
+  return items.filter((item) => {
+    const deletedAt = deletedMap.get(item.id);
+    return !deletedAt || (item.updatedAt || 0) > deletedAt;
+  });
+};
+
+const mergeById = (localItems, cloudItems, tombstones = null) => {
   const map = new Map();
   localItems.forEach((item) => {
     map.set(item.id, normalizeItem(item));
@@ -42,13 +56,26 @@ const mergeById = (localItems, cloudItems) => {
       map.set(normalized.id, normalized);
     }
   });
-  return Array.from(map.values());
+  const merged = Array.from(map.values());
+  return tombstones ? applyTombstones(merged, tombstones) : merged;
 };
 
 const state = {
   investimenti: loadData(STORAGE_KEYS.investimenti),
   trades: loadData(STORAGE_KEYS.trades),
   promemoria: loadData(STORAGE_KEYS.promemoria),
+};
+
+const deletedState = {
+  investimenti: loadData(DELETED_KEYS.investimenti),
+  trades: loadData(DELETED_KEYS.trades),
+  promemoria: loadData(DELETED_KEYS.promemoria),
+};
+
+const saveDeleted = () => {
+  saveData(DELETED_KEYS.investimenti, deletedState.investimenti);
+  saveData(DELETED_KEYS.trades, deletedState.trades);
+  saveData(DELETED_KEYS.promemoria, deletedState.promemoria);
 };
 
 let lastCloudUpdatedAt = 0;
@@ -192,7 +219,9 @@ const renderInvestimenti = () => {
 
       item.querySelector("button").addEventListener("click", () => {
         state.investimenti = state.investimenti.filter((x) => x.id !== t.id);
+        deletedState.investimenti.push({ id: t.id, deletedAt: Date.now() });
         saveData(STORAGE_KEYS.investimenti, state.investimenti);
+        saveDeleted();
         aggiornaUI();
         scheduleUpload();
       });
@@ -236,7 +265,9 @@ const renderTrades = () => {
 
       item.querySelector("button").addEventListener("click", () => {
         state.trades = state.trades.filter((x) => x.id !== t.id);
+        deletedState.trades.push({ id: t.id, deletedAt: Date.now() });
         saveData(STORAGE_KEYS.trades, state.trades);
+        saveDeleted();
         aggiornaUI();
         scheduleUpload();
       });
@@ -333,7 +364,9 @@ const renderPromemoria = () => {
 
       item.querySelector("[data-remove]").addEventListener("click", () => {
         state.promemoria = state.promemoria.filter((x) => x.id !== p.id);
+        deletedState.promemoria.push({ id: p.id, deletedAt: Date.now() });
         saveData(STORAGE_KEYS.promemoria, state.promemoria);
+        saveDeleted();
         aggiornaUI();
         scheduleUpload();
       });

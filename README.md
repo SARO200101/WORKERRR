@@ -1,6 +1,6 @@
 # Officina & Investimenti
 
-Web app PWA in italiano per iOS e desktop, con funzionamento offline. Serve per:
+Web app PWA in italiano per iOS e desktop. Serve per:
 - registrare investimenti in azioni (solo totale investito)
 - registrare acquisti e vendite con calcolo profitto/perdita
 - gestire promemoria lavori (es. riparazioni)

@@ -5,7 +5,7 @@
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#0f172a",
-  "description": "Gestione offline di investimenti, incassi e promemoria lavori.",
+  "description": "Gestione di investimenti, incassi e promemoria lavori.",
   "lang": "it-IT",
   "icons": [
     {

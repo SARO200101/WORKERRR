@@ -44,9 +44,14 @@ const elementi = {
   totaleAcquisti: document.getElementById("totale-acquisti"),
   totaleVendite: document.getElementById("totale-vendite"),
   totaleProfitto: document.getElementById("totale-profitto"),
+  totaleCostiPezzi: document.getElementById("totale-costi-pezzi"),
+  totaleRicaviCliente: document.getElementById("totale-ricavi-cliente"),
+  totaleDaIncassare: document.getElementById("totale-da-incassare"),
+  totaleMargine: document.getElementById("totale-margine"),
   resetInvestimenti: document.getElementById("reset-investimenti"),
   resetTrades: document.getElementById("reset-trades"),
   resetPromemoria: document.getElementById("reset-promemoria"),
+  filterNonPagati: document.getElementById("filter-non-pagati"),
   syncStatus: document.getElementById("sync-status"),
 };
 
@@ -69,11 +74,27 @@ const calcolaTotali = () => {
     .filter((t) => t.tipo === "vendita")
     .reduce((acc, t) => acc + t.importo, 0);
   const profitto = vendite - acquisti;
+  const costiPezzi = state.promemoria.reduce(
+    (acc, p) => acc + (p.costoPezzi || 0),
+    0
+  );
+  const ricaviCliente = state.promemoria.reduce(
+    (acc, p) => acc + (p.prezzoCliente || 0),
+    0
+  );
+  const daIncassare = state.promemoria
+    .filter((p) => !p.pagato)
+    .reduce((acc, p) => acc + (p.prezzoCliente || 0), 0);
+  const margine = ricaviCliente - costiPezzi;
 
   elementi.totaleInvestito.textContent = formatCurrency(investito);
   elementi.totaleAcquisti.textContent = formatCurrency(acquisti);
   elementi.totaleVendite.textContent = formatCurrency(vendite);
   elementi.totaleProfitto.textContent = formatCurrency(profitto);
+  elementi.totaleCostiPezzi.textContent = formatCurrency(costiPezzi);
+  elementi.totaleRicaviCliente.textContent = formatCurrency(ricaviCliente);
+  elementi.totaleDaIncassare.textContent = formatCurrency(daIncassare);
+  elementi.totaleMargine.textContent = formatCurrency(margine);
 };
 
 const renderInvestimenti = () => {
@@ -164,33 +185,55 @@ const renderTrades = () => {
 
 const renderPromemoria = () => {
   elementi.listaPromemoria.innerHTML = "";
+  const mostraSoloNonPagati = elementi.filterNonPagati?.checked;
+  const promemoriaFiltrati = mostraSoloNonPagati
+    ? state.promemoria.filter((p) => !p.pagato)
+    : state.promemoria;
 
-  if (state.promemoria.length === 0) {
-    elementi.listaPromemoria.innerHTML =
-      '<p class="item-meta">Nessun promemoria attivo.</p>';
+  if (promemoriaFiltrati.length === 0) {
+    elementi.listaPromemoria.innerHTML = mostraSoloNonPagati
+      ? '<p class="item-meta">Nessun promemoria da incassare.</p>'
+      : '<p class="item-meta">Nessun promemoria attivo.</p>';
     return;
   }
 
-  state.promemoria
+  promemoriaFiltrati
     .slice()
     .sort((a, b) => new Date(a.data) - new Date(b.data))
     .forEach((p) => {
       const item = document.createElement("div");
-      item.className = "item";
+      item.className = `item${p.completato ? "" : " is-open"}`;
+      const statoClasse = p.completato ? "success" : "danger";
+      const pagatoClasse = p.pagato ? "success" : "warning";
       item.innerHTML = `
         <div class="item-header">
           <div>
             <div class="item-title">${p.dispositivo}</div>
             <div class="item-meta">${p.intervento} · ${p.data}</div>
           </div>
-          <div class="badge ${p.completato ? "success" : ""}">${
+          <div class="badge ${statoClasse}">${
             p.completato ? "fatto" : "aperto"
           }</div>
+        </div>
+        <div class="item-header">
+          <div class="item-meta">Costo pezzi</div>
+          <strong>${formatCurrency(p.costoPezzi || 0)}</strong>
+        </div>
+        <div class="item-header">
+          <div class="item-meta">Prezzo cliente</div>
+          <strong>${formatCurrency(p.prezzoCliente || 0)}</strong>
+        </div>
+        <div class="item-header">
+          <div class="item-meta">Pagamento</div>
+          <div class="badge ${pagatoClasse}">${p.pagato ? "pagato" : "da pagare"}</div>
         </div>
         <div class="item-meta">${p.note || "Nessuna nota"}</div>
         <div class="item-header">
           <button class="primary" data-toggle="${p.id}">${
             p.completato ? "Riapri" : "Segna fatto"
+          }</button>
+          <button class="ghost" data-pay="${p.id}">${
+            p.pagato ? "Segna non pagato" : "Segna pagato"
           }</button>
           <button class="ghost" data-remove="${p.id}">Rimuovi</button>
         </div>
@@ -199,14 +242,21 @@ const renderPromemoria = () => {
       item.querySelector("[data-toggle]").addEventListener("click", () => {
         p.completato = !p.completato;
         saveData(STORAGE_KEYS.promemoria, state.promemoria);
-        renderPromemoria();
+        aggiornaUI();
+        scheduleUpload();
+      });
+
+      item.querySelector("[data-pay]").addEventListener("click", () => {
+        p.pagato = !p.pagato;
+        saveData(STORAGE_KEYS.promemoria, state.promemoria);
+        aggiornaUI();
         scheduleUpload();
       });
 
       item.querySelector("[data-remove]").addEventListener("click", () => {
         state.promemoria = state.promemoria.filter((x) => x.id !== p.id);
         saveData(STORAGE_KEYS.promemoria, state.promemoria);
-        renderPromemoria();
+        aggiornaUI();
         scheduleUpload();
       });
 
@@ -277,6 +327,9 @@ elementi.formPromemoria.addEventListener("submit", (event) => {
     data: formData.get("data"),
     dispositivo: formData.get("dispositivo"),
     intervento: formData.get("intervento"),
+    costoPezzi: Number(formData.get("costoPezzi")) || 0,
+    prezzoCliente: Number(formData.get("prezzoCliente")) || 0,
+    pagato: formData.get("pagato") === "si",
     note: formData.get("note"),
     completato: false,
   };
@@ -284,7 +337,7 @@ elementi.formPromemoria.addEventListener("submit", (event) => {
   state.promemoria.push(nuovo);
   saveData(STORAGE_KEYS.promemoria, state.promemoria);
   event.target.reset();
-  renderPromemoria();
+  aggiornaUI();
   scheduleUpload();
 });
 
@@ -308,7 +361,7 @@ elementi.resetPromemoria.addEventListener("click", () => {
   if (!confirm("Vuoi cancellare tutti i promemoria?")) return;
   state.promemoria = [];
   saveData(STORAGE_KEYS.promemoria, state.promemoria);
-  renderPromemoria();
+  aggiornaUI();
   scheduleUpload();
 });
 
@@ -320,7 +373,7 @@ if ("serviceWorker" in navigator) {
 
 const uploadToCloud = async () => {
   if (!navigator.onLine) {
-    setSyncStatus("Offline: connessione assente");
+    setSyncStatus("Senza rete");
     return;
   }
   setSyncStatus("Caricamento in corso...");
@@ -348,7 +401,7 @@ const uploadToCloud = async () => {
 
 const downloadFromCloud = async () => {
   if (!navigator.onLine) {
-    setSyncStatus("Offline: connessione assente");
+    setSyncStatus("Senza rete");
     return;
   }
   setSyncStatus("Download in corso...");
@@ -382,14 +435,16 @@ const scheduleUpload = (() => {
   };
 })();
 
-window.addEventListener("online", () => setSyncStatus("Online"));
-window.addEventListener("offline", () => setSyncStatus("Offline"));
+window.addEventListener("online", () => setSyncStatus("Connesso"));
+window.addEventListener("offline", () => setSyncStatus("Senza rete"));
 
 getSyncKey();
 
+elementi.filterNonPagati?.addEventListener("change", renderPromemoria);
+
 initTabs();
 aggiornaUI();
-setSyncStatus(navigator.onLine ? "Online" : "Offline");
+setSyncStatus(navigator.onLine ? "Connesso" : "Senza rete");
 
 downloadFromCloud().catch(() => setSyncStatus("Errore download"));
 setInterval(() => {

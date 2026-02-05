@@ -16,10 +16,10 @@
     <div class="app">
       <header class="app-header">
         <div>
-          <p class="app-subtitle">Gestione offline</p>
+          <p class="app-subtitle">Gestione lavori e finanze</p>
           <h1 class="app-title">Officina &amp; Investimenti</h1>
         </div>
-        <div class="app-badge">Offline pronto</div>
+        <div class="app-badge">Sync cloud</div>
       </header>
 
       <nav class="tabs" role="tablist">
@@ -32,7 +32,7 @@
         <div class="sync-fields">
           <span class="sync-note">Cloud opzionale: richiede Pages + D1.</span>
         </div>
-        <div class="sync-status" id="sync-status">Offline</div>
+        <div class="sync-status" id="sync-status">Sync pronta</div>
       </section>
 
       <main>
@@ -136,6 +136,25 @@
         </section>
 
         <section class="panel" id="promemoria" role="tabpanel">
+          <div class="cards">
+            <div class="card">
+              <p>Totale costi pezzi</p>
+              <h2 id="totale-costi-pezzi">€ 0,00</h2>
+            </div>
+            <div class="card">
+              <p>Totale ricavi cliente</p>
+              <h2 id="totale-ricavi-cliente">€ 0,00</h2>
+            </div>
+            <div class="card">
+              <p>Da incassare</p>
+              <h2 id="totale-da-incassare">€ 0,00</h2>
+            </div>
+            <div class="card is-highlight">
+              <p>Margine</p>
+              <h2 id="totale-margine">€ 0,00</h2>
+            </div>
+          </div>
+
           <div class="form-section">
             <h3>Nuovo promemoria lavoro</h3>
             <form id="form-promemoria" autocomplete="off">
@@ -152,6 +171,21 @@
                   Intervento
                   <input type="text" name="intervento" placeholder="Sostituzione schermo" required />
                 </label>
+                <label>
+                  Costo pezzi (€)
+                  <input type="number" name="costoPezzi" step="0.01" min="0" required />
+                </label>
+                <label>
+                  Prezzo cliente (€)
+                  <input type="number" name="prezzoCliente" step="0.01" min="0" required />
+                </label>
+                <label>
+                  Pagato
+                  <select name="pagato" required>
+                    <option value="no">No</option>
+                    <option value="si">Si</option>
+                  </select>
+                </label>
                 <label class="full">
                   Note
                   <input type="text" name="note" placeholder="Ricorda pezzi, tempi, cliente" />
@@ -164,7 +198,13 @@
           <div class="list-section">
             <div class="section-header">
               <h3>Promemoria attivi</h3>
-              <button class="ghost" id="reset-promemoria">Svuota tutto</button>
+              <div class="section-actions">
+                <label class="filter-toggle">
+                  <input type="checkbox" id="filter-non-pagati" />
+                  Solo da pagare
+                </label>
+                <button class="ghost" id="reset-promemoria">Svuota tutto</button>
+              </div>
             </div>
             <div id="lista-promemoria" class="list"></div>
           </div>

@@ -1,0 +1,391 @@
+const STORAGE_KEYS = {
+  investimenti: "officina_investimenti_v1",
+  trades: "officina_trades_v1",
+  promemoria: "officina_promemoria_v1",
+  syncKey: "officina_sync_key_v1",
+};
+
+const formatCurrency = (value) =>
+  new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+  }).format(value);
+
+const loadData = (key) => {
+  const raw = localStorage.getItem(key);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+};
+
+const saveData = (key, data) => {
+  localStorage.setItem(key, JSON.stringify(data));
+};
+
+const state = {
+  investimenti: loadData(STORAGE_KEYS.investimenti),
+  trades: loadData(STORAGE_KEYS.trades),
+  promemoria: loadData(STORAGE_KEYS.promemoria),
+};
+
+const elementi = {
+  tabs: document.querySelectorAll(".tab"),
+  panels: document.querySelectorAll(".panel"),
+  formInvestimento: document.getElementById("form-investimento"),
+  listaInvestimenti: document.getElementById("lista-investimenti"),
+  formTrade: document.getElementById("form-trade"),
+  listaTrades: document.getElementById("lista-trades"),
+  formPromemoria: document.getElementById("form-promemoria"),
+  listaPromemoria: document.getElementById("lista-promemoria"),
+  totaleInvestito: document.getElementById("totale-investito"),
+  totaleAcquisti: document.getElementById("totale-acquisti"),
+  totaleVendite: document.getElementById("totale-vendite"),
+  totaleProfitto: document.getElementById("totale-profitto"),
+  resetInvestimenti: document.getElementById("reset-investimenti"),
+  resetTrades: document.getElementById("reset-trades"),
+  resetPromemoria: document.getElementById("reset-promemoria"),
+  syncKey: document.getElementById("sync-key"),
+  syncUpload: document.getElementById("sync-upload"),
+  syncDownload: document.getElementById("sync-download"),
+  syncStatus: document.getElementById("sync-status"),
+};
+
+const getSyncKey = () => {
+  const key = elementi.syncKey.value.trim() || "principale";
+  localStorage.setItem(STORAGE_KEYS.syncKey, key);
+  return key;
+};
+
+const setSyncStatus = (message) => {
+  elementi.syncStatus.textContent = message;
+};
+
+const calcolaTotali = () => {
+  const investito = state.investimenti.reduce((acc, t) => acc + t.importo, 0);
+  const acquisti = state.trades
+    .filter((t) => t.tipo === "acquisto")
+    .reduce((acc, t) => acc + t.importo, 0);
+  const vendite = state.trades
+    .filter((t) => t.tipo === "vendita")
+    .reduce((acc, t) => acc + t.importo, 0);
+  const profitto = vendite - acquisti;
+
+  elementi.totaleInvestito.textContent = formatCurrency(investito);
+  elementi.totaleAcquisti.textContent = formatCurrency(acquisti);
+  elementi.totaleVendite.textContent = formatCurrency(vendite);
+  elementi.totaleProfitto.textContent = formatCurrency(profitto);
+};
+
+const renderInvestimenti = () => {
+  elementi.listaInvestimenti.innerHTML = "";
+
+  if (state.investimenti.length === 0) {
+    elementi.listaInvestimenti.innerHTML =
+      '<p class="item-meta">Nessun investimento registrato.</p>';
+    return;
+  }
+
+  state.investimenti
+    .slice()
+    .sort((a, b) => new Date(b.data) - new Date(a.data))
+    .forEach((t) => {
+      const item = document.createElement("div");
+      item.className = "item";
+
+      item.innerHTML = `
+        <div class="item-header">
+          <div>
+            <div class="item-title">${t.titolo}</div>
+            <div class="item-meta">${t.data} · ${t.note || "Nessuna nota"}</div>
+          </div>
+          <div class="badge">investimento</div>
+        </div>
+        <div class="item-header">
+          <div class="item-meta">Importo</div>
+          <strong>${formatCurrency(t.importo)}</strong>
+        </div>
+        <button class="ghost" data-remove="${t.id}">Rimuovi</button>
+      `;
+
+      item.querySelector("button").addEventListener("click", () => {
+        state.investimenti = state.investimenti.filter((x) => x.id !== t.id);
+        saveData(STORAGE_KEYS.investimenti, state.investimenti);
+        aggiornaUI();
+      });
+
+      elementi.listaInvestimenti.appendChild(item);
+    });
+};
+
+const renderTrades = () => {
+  elementi.listaTrades.innerHTML = "";
+
+  if (state.trades.length === 0) {
+    elementi.listaTrades.innerHTML =
+      '<p class="item-meta">Nessun acquisto o vendita registrata.</p>';
+    return;
+  }
+
+  state.trades
+    .slice()
+    .sort((a, b) => new Date(b.data) - new Date(a.data))
+    .forEach((t) => {
+      const item = document.createElement("div");
+      item.className = "item";
+      const badgeClass = t.tipo === "vendita" ? "success" : "danger";
+      const segno = t.tipo === "vendita" ? "+" : "-";
+
+      item.innerHTML = `
+        <div class="item-header">
+          <div>
+            <div class="item-title">${t.titolo}</div>
+            <div class="item-meta">${t.data} · ${t.note || "Nessuna nota"}</div>
+          </div>
+          <div class="badge ${badgeClass}">${t.tipo}</div>
+        </div>
+        <div class="item-header">
+          <div class="item-meta">Importo</div>
+          <strong>${segno} ${formatCurrency(t.importo)}</strong>
+        </div>
+        <button class="ghost" data-remove="${t.id}">Rimuovi</button>
+      `;
+
+      item.querySelector("button").addEventListener("click", () => {
+        state.trades = state.trades.filter((x) => x.id !== t.id);
+        saveData(STORAGE_KEYS.trades, state.trades);
+        aggiornaUI();
+      });
+
+      elementi.listaTrades.appendChild(item);
+    });
+};
+
+const renderPromemoria = () => {
+  elementi.listaPromemoria.innerHTML = "";
+
+  if (state.promemoria.length === 0) {
+    elementi.listaPromemoria.innerHTML =
+      '<p class="item-meta">Nessun promemoria attivo.</p>';
+    return;
+  }
+
+  state.promemoria
+    .slice()
+    .sort((a, b) => new Date(a.data) - new Date(b.data))
+    .forEach((p) => {
+      const item = document.createElement("div");
+      item.className = "item";
+      item.innerHTML = `
+        <div class="item-header">
+          <div>
+            <div class="item-title">${p.dispositivo}</div>
+            <div class="item-meta">${p.intervento} · ${p.data}</div>
+          </div>
+          <div class="badge ${p.completato ? "success" : ""}">${
+            p.completato ? "fatto" : "aperto"
+          }</div>
+        </div>
+        <div class="item-meta">${p.note || "Nessuna nota"}</div>
+        <div class="item-header">
+          <button class="primary" data-toggle="${p.id}">${
+            p.completato ? "Riapri" : "Segna fatto"
+          }</button>
+          <button class="ghost" data-remove="${p.id}">Rimuovi</button>
+        </div>
+      `;
+
+      item.querySelector("[data-toggle]").addEventListener("click", () => {
+        p.completato = !p.completato;
+        saveData(STORAGE_KEYS.promemoria, state.promemoria);
+        renderPromemoria();
+      });
+
+      item.querySelector("[data-remove]").addEventListener("click", () => {
+        state.promemoria = state.promemoria.filter((x) => x.id !== p.id);
+        saveData(STORAGE_KEYS.promemoria, state.promemoria);
+        renderPromemoria();
+      });
+
+      elementi.listaPromemoria.appendChild(item);
+    });
+};
+
+const aggiornaUI = () => {
+  calcolaTotali();
+  renderInvestimenti();
+  renderTrades();
+  renderPromemoria();
+};
+
+const initTabs = () => {
+  elementi.tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      elementi.tabs.forEach((t) => t.classList.remove("is-active"));
+      elementi.panels.forEach((p) => p.classList.remove("is-active"));
+      tab.classList.add("is-active");
+      document.getElementById(tab.dataset.tab).classList.add("is-active");
+    });
+  });
+};
+
+elementi.formInvestimento.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const nuova = {
+    id: crypto.randomUUID(),
+    data: formData.get("data"),
+    titolo: formData.get("titolo"),
+    importo: Number(formData.get("importo")),
+    note: formData.get("note"),
+  };
+
+  state.investimenti.push(nuova);
+  saveData(STORAGE_KEYS.investimenti, state.investimenti);
+  event.target.reset();
+  aggiornaUI();
+});
+
+elementi.formTrade.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const nuova = {
+    id: crypto.randomUUID(),
+    data: formData.get("data"),
+    tipo: formData.get("tipo"),
+    titolo: formData.get("titolo"),
+    importo: Number(formData.get("importo")),
+    note: formData.get("note"),
+  };
+
+  state.trades.push(nuova);
+  saveData(STORAGE_KEYS.trades, state.trades);
+  event.target.reset();
+  aggiornaUI();
+});
+
+elementi.formPromemoria.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const nuovo = {
+    id: crypto.randomUUID(),
+    data: formData.get("data"),
+    dispositivo: formData.get("dispositivo"),
+    intervento: formData.get("intervento"),
+    note: formData.get("note"),
+    completato: false,
+  };
+
+  state.promemoria.push(nuovo);
+  saveData(STORAGE_KEYS.promemoria, state.promemoria);
+  event.target.reset();
+  renderPromemoria();
+});
+
+elementi.resetInvestimenti.addEventListener("click", () => {
+  if (!confirm("Vuoi cancellare tutti gli investimenti?")) return;
+  state.investimenti = [];
+  saveData(STORAGE_KEYS.investimenti, state.investimenti);
+  aggiornaUI();
+});
+
+elementi.resetTrades.addEventListener("click", () => {
+  if (!confirm("Vuoi cancellare tutti gli acquisti e vendite?")) return;
+  state.trades = [];
+  saveData(STORAGE_KEYS.trades, state.trades);
+  aggiornaUI();
+});
+
+elementi.resetPromemoria.addEventListener("click", () => {
+  if (!confirm("Vuoi cancellare tutti i promemoria?")) return;
+  state.promemoria = [];
+  saveData(STORAGE_KEYS.promemoria, state.promemoria);
+  renderPromemoria();
+});
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js");
+  });
+}
+
+const uploadToCloud = async () => {
+  if (!navigator.onLine) {
+    setSyncStatus("Offline: connessione assente");
+    return;
+  }
+  setSyncStatus("Caricamento in corso...");
+  const payload = {
+    investimenti: state.investimenti,
+    trades: state.trades,
+    promemoria: state.promemoria,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const response = await fetch(`/api/sync?key=${encodeURIComponent(getSyncKey())}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!response.ok) {
+    setSyncStatus("Errore upload");
+    return;
+  }
+  setSyncStatus("Caricamento completato");
+};
+
+const downloadFromCloud = async () => {
+  if (!navigator.onLine) {
+    setSyncStatus("Offline: connessione assente");
+    return;
+  }
+  setSyncStatus("Download in corso...");
+  const response = await fetch(`/api/sync?key=${encodeURIComponent(getSyncKey())}`);
+  if (!response.ok) {
+    setSyncStatus("Errore download");
+    return;
+  }
+  const data = await response.json();
+  if (!data || !data.data) {
+    setSyncStatus("Nessun dato nel cloud");
+    return;
+  }
+  if (!confirm("Sovrascrivere i dati locali con quelli del cloud?")) {
+    setSyncStatus("Download annullato");
+    return;
+  }
+
+  state.investimenti = data.data.investimenti || [];
+  state.trades = data.data.trades || [];
+  state.promemoria = data.data.promemoria || [];
+  saveData(STORAGE_KEYS.investimenti, state.investimenti);
+  saveData(STORAGE_KEYS.trades, state.trades);
+  saveData(STORAGE_KEYS.promemoria, state.promemoria);
+  aggiornaUI();
+  setSyncStatus("Download completato");
+};
+
+elementi.syncUpload.addEventListener("click", () => {
+  uploadToCloud().catch(() => setSyncStatus("Errore upload"));
+});
+
+elementi.syncDownload.addEventListener("click", () => {
+  downloadFromCloud().catch(() => setSyncStatus("Errore download"));
+});
+
+window.addEventListener("online", () => setSyncStatus("Online"));
+window.addEventListener("offline", () => setSyncStatus("Offline"));
+
+const savedSyncKey = localStorage.getItem(STORAGE_KEYS.syncKey);
+if (savedSyncKey) {
+  elementi.syncKey.value = savedSyncKey;
+}
+
+initTabs();
+aggiornaUI();
+setSyncStatus(navigator.onLine ? "Online" : "Offline");

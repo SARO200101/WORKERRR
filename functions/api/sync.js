@@ -1,0 +1,44 @@
+export async function onRequest(context) {
+  const { request, env } = context;
+  const url = new URL(request.url);
+  const key = url.searchParams.get("key") || "principale";
+
+  if (!key) {
+    return new Response(JSON.stringify({ error: "Missing key" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (request.method === "GET") {
+    const result = await env.DB.prepare("SELECT data FROM app_data WHERE key = ?")
+      .bind(key)
+      .first();
+
+    return new Response(
+      JSON.stringify({ data: result ? JSON.parse(result.data) : null }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  if (request.method === "POST") {
+    const body = await request.json();
+    const payload = JSON.stringify(body);
+    const updatedAt = Date.now();
+
+    await env.DB.prepare(
+      "INSERT INTO app_data (key, data, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at"
+    )
+      .bind(key, payload, updatedAt)
+      .run();
+
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  return new Response(JSON.stringify({ error: "Method not allowed" }), {
+    status: 405,
+    headers: { "Content-Type": "application/json" },
+  });
+}

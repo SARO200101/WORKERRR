@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Officina" />
+    <link rel="apple-touch-icon" href="icons/icon-192.svg" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Officina - Gestione investimenti e lavori</title>
+  </head>
+  <body>
+    <div class="app">
+      <header class="app-header">
+        <div>
+          <p class="app-subtitle">Gestione offline</p>
+          <h1 class="app-title">Officina &amp; Investimenti</h1>
+        </div>
+        <div class="app-badge">Offline pronto</div>
+      </header>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab is-active" data-tab="investimenti" role="tab" aria-selected="true">Investimenti</button>
+        <button class="tab" data-tab="trades" role="tab" aria-selected="false">Acquisti/Vendite</button>
+        <button class="tab" data-tab="promemoria" role="tab" aria-selected="false">Promemoria</button>
+      </nav>
+
+      <section class="sync-bar" aria-label="Sincronizzazione cloud">
+        <div class="sync-fields">
+          <label>
+            ID archivio
+            <input type="text" id="sync-key" placeholder="principale" />
+          </label>
+          <span class="sync-note">Cloud opzionale: richiede Pages + D1.</span>
+        </div>
+        <div class="sync-actions">
+          <button class="ghost" id="sync-download">Scarica dal cloud</button>
+          <button class="primary" id="sync-upload">Carica su cloud</button>
+        </div>
+        <div class="sync-status" id="sync-status">Offline</div>
+      </section>
+
+      <main>
+        <section class="panel is-active" id="investimenti" role="tabpanel">
+          <div class="cards">
+            <div class="card is-highlight">
+              <p>Totale investito azioni</p>
+              <h2 id="totale-investito">€ 0,00</h2>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Nuovo investimento azioni</h3>
+            <form id="form-investimento" autocomplete="off">
+              <div class="grid">
+                <label>
+                  Data
+                  <input type="date" name="data" required />
+                </label>
+                <label>
+                  Titolo
+                  <input type="text" name="titolo" placeholder="Amazon" required />
+                </label>
+                <label>
+                  Importo investito (€)
+                  <input type="number" name="importo" step="0.01" min="0" required />
+                </label>
+                <label class="full">
+                  Note
+                  <input type="text" name="note" placeholder="Esempio: acquisto azioni" />
+                </label>
+              </div>
+              <button class="primary" type="submit">Aggiungi investimento</button>
+            </form>
+          </div>
+
+          <div class="list-section">
+            <div class="section-header">
+              <h3>Investimenti azioni</h3>
+              <button class="ghost" id="reset-investimenti">Svuota tutto</button>
+            </div>
+            <div id="lista-investimenti" class="list"></div>
+          </div>
+        </section>
+
+        <section class="panel" id="trades" role="tabpanel">
+          <div class="cards">
+            <div class="card">
+              <p>Totale acquisti</p>
+              <h2 id="totale-acquisti">€ 0,00</h2>
+            </div>
+            <div class="card">
+              <p>Totale vendite</p>
+              <h2 id="totale-vendite">€ 0,00</h2>
+            </div>
+            <div class="card is-highlight">
+              <p>Profitto / Perdita</p>
+              <h2 id="totale-profitto">€ 0,00</h2>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Nuovo acquisto / vendita</h3>
+            <form id="form-trade" autocomplete="off">
+              <div class="grid">
+                <label>
+                  Data
+                  <input type="date" name="data" required />
+                </label>
+                <label>
+                  Tipo
+                  <select name="tipo" required>
+                    <option value="acquisto">Acquisto</option>
+                    <option value="vendita">Vendita</option>
+                  </select>
+                </label>
+                <label>
+                  Titolo
+                  <input type="text" name="titolo" placeholder="Amazon" required />
+                </label>
+                <label>
+                  Importo (€)
+                  <input type="number" name="importo" step="0.01" min="0" required />
+                </label>
+                <label class="full">
+                  Note
+                  <input type="text" name="note" placeholder="Esempio: + o - con relativa nota" />
+                </label>
+              </div>
+              <button class="primary" type="submit">Aggiungi movimento</button>
+            </form>
+          </div>
+
+          <div class="list-section">
+            <div class="section-header">
+              <h3>Acquisti e vendite</h3>
+              <button class="ghost" id="reset-trades">Svuota tutto</button>
+            </div>
+            <div id="lista-trades" class="list"></div>
+          </div>
+        </section>
+
+        <section class="panel" id="promemoria" role="tabpanel">
+          <div class="form-section">
+            <h3>Nuovo promemoria lavoro</h3>
+            <form id="form-promemoria" autocomplete="off">
+              <div class="grid">
+                <label>
+                  Data
+                  <input type="date" name="data" required />
+                </label>
+                <label>
+                  Dispositivo
+                  <input type="text" name="dispositivo" placeholder="iPhone 14 Pro Max" required />
+                </label>
+                <label>
+                  Intervento
+                  <input type="text" name="intervento" placeholder="Sostituzione schermo" required />
+                </label>
+                <label class="full">
+                  Note
+                  <input type="text" name="note" placeholder="Ricorda pezzi, tempi, cliente" />
+                </label>
+              </div>
+              <button class="primary" type="submit">Aggiungi promemoria</button>
+            </form>
+          </div>
+
+          <div class="list-section">
+            <div class="section-header">
+              <h3>Promemoria attivi</h3>
+              <button class="ghost" id="reset-promemoria">Svuota tutto</button>
+            </div>
+            <div id="lista-promemoria" class="list"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

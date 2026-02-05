@@ -11,19 +11,8 @@ const formatCurrency = (value) =>
     currency: "EUR",
   }).format(value);
 
-const loadData = (key) => {
-  const raw = localStorage.getItem(key);
-  if (!raw) return [];
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
-};
-
-const saveData = (key, data) => {
-  localStorage.setItem(key, JSON.stringify(data));
-};
+const loadData = () => [];
+const saveData = () => {};
 
 const DELETED_KEYS = {
   investimenti: "officina_deleted_investimenti_v1",
@@ -76,22 +65,18 @@ const mergeTombstones = (localTombstones, cloudTombstones) => {
 };
 
 const state = {
-  investimenti: loadData(STORAGE_KEYS.investimenti),
-  trades: loadData(STORAGE_KEYS.trades),
-  promemoria: loadData(STORAGE_KEYS.promemoria),
+  investimenti: [],
+  trades: [],
+  promemoria: [],
 };
 
 const deletedState = {
-  investimenti: loadData(DELETED_KEYS.investimenti),
-  trades: loadData(DELETED_KEYS.trades),
-  promemoria: loadData(DELETED_KEYS.promemoria),
+  investimenti: [],
+  trades: [],
+  promemoria: [],
 };
 
-const saveDeleted = () => {
-  saveData(DELETED_KEYS.investimenti, deletedState.investimenti);
-  saveData(DELETED_KEYS.trades, deletedState.trades);
-  saveData(DELETED_KEYS.promemoria, deletedState.promemoria);
-};
+const saveDeleted = () => {};
 
 let lastCloudUpdatedAt = 0;
 
@@ -172,7 +157,6 @@ const setPromemoriaEditMode = (item) => {
 
 const getSyncKey = () => {
   const key = "principale";
-  localStorage.setItem(STORAGE_KEYS.syncKey, key);
   return key;
 };
 
@@ -251,8 +235,6 @@ const renderInvestimenti = () => {
       item.querySelector("button").addEventListener("click", () => {
         state.investimenti = state.investimenti.filter((x) => x.id !== t.id);
         deletedState.investimenti.push({ id: t.id, deletedAt: Date.now() });
-        saveData(STORAGE_KEYS.investimenti, state.investimenti);
-        saveDeleted();
         aggiornaUI();
         scheduleUpload();
       });
@@ -297,8 +279,6 @@ const renderTrades = () => {
       item.querySelector("button").addEventListener("click", () => {
         state.trades = state.trades.filter((x) => x.id !== t.id);
         deletedState.trades.push({ id: t.id, deletedAt: Date.now() });
-        saveData(STORAGE_KEYS.trades, state.trades);
-        saveDeleted();
         aggiornaUI();
         scheduleUpload();
       });
@@ -375,7 +355,6 @@ const renderPromemoria = () => {
       item.querySelector("[data-toggle]").addEventListener("click", () => {
         p.completato = !p.completato;
         p.updatedAt = Date.now();
-        saveData(STORAGE_KEYS.promemoria, state.promemoria);
         aggiornaUI();
         scheduleUpload();
       });
@@ -383,7 +362,6 @@ const renderPromemoria = () => {
       item.querySelector("[data-pay]").addEventListener("click", () => {
         p.pagato = !p.pagato;
         p.updatedAt = Date.now();
-        saveData(STORAGE_KEYS.promemoria, state.promemoria);
         aggiornaUI();
         scheduleUpload();
       });
@@ -396,8 +374,6 @@ const renderPromemoria = () => {
       item.querySelector("[data-remove]").addEventListener("click", () => {
         state.promemoria = state.promemoria.filter((x) => x.id !== p.id);
         deletedState.promemoria.push({ id: p.id, deletedAt: Date.now() });
-        saveData(STORAGE_KEYS.promemoria, state.promemoria);
-        saveDeleted();
         aggiornaUI();
         scheduleUpload();
       });
@@ -437,7 +413,6 @@ elementi.formInvestimento.addEventListener("submit", (event) => {
   };
 
   state.investimenti.push(nuova);
-  saveData(STORAGE_KEYS.investimenti, state.investimenti);
   event.target.reset();
   aggiornaUI();
   scheduleUpload();
@@ -457,7 +432,6 @@ elementi.formTrade.addEventListener("submit", (event) => {
   };
 
   state.trades.push(nuova);
-  saveData(STORAGE_KEYS.trades, state.trades);
   event.target.reset();
   aggiornaUI();
   scheduleUpload();
@@ -494,7 +468,6 @@ elementi.formPromemoria.addEventListener("submit", (event) => {
     });
   }
 
-  saveData(STORAGE_KEYS.promemoria, state.promemoria);
   setPromemoriaEditMode(null);
   aggiornaUI();
   scheduleUpload();
@@ -585,10 +558,6 @@ const uploadToCloud = async () => {
       cloudPromemoria,
       deletedState.promemoria
     );
-    saveData(STORAGE_KEYS.investimenti, state.investimenti);
-    saveData(STORAGE_KEYS.trades, state.trades);
-    saveData(STORAGE_KEYS.promemoria, state.promemoria);
-    saveDeleted();
     aggiornaUI();
     setSyncStatus("Cloud piu recente");
     return;
@@ -626,10 +595,6 @@ const downloadFromCloud = async () => {
     deletedState.investimenti = [];
     deletedState.trades = [];
     deletedState.promemoria = [];
-    saveData(STORAGE_KEYS.investimenti, state.investimenti);
-    saveData(STORAGE_KEYS.trades, state.trades);
-    saveData(STORAGE_KEYS.promemoria, state.promemoria);
-    saveDeleted();
     aggiornaUI();
     setSyncStatus("Cloud vuoto, dati locali puliti");
     return;
@@ -666,10 +631,6 @@ const downloadFromCloud = async () => {
     cloudPromemoria,
     deletedState.promemoria
   );
-  saveData(STORAGE_KEYS.investimenti, state.investimenti);
-  saveData(STORAGE_KEYS.trades, state.trades);
-  saveData(STORAGE_KEYS.promemoria, state.promemoria);
-  saveDeleted();
   aggiornaUI();
   setSyncStatus("Sincronizzato");
   scheduleUpload();

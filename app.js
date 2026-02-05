@@ -51,6 +51,13 @@ const state = {
   promemoria: loadData(STORAGE_KEYS.promemoria),
 };
 
+let lastCloudUpdatedAt = 0;
+
+const getLocalUpdatedAt = () => {
+  const allItems = [...state.investimenti, ...state.trades, ...state.promemoria];
+  return allItems.reduce((acc, item) => Math.max(acc, item.updatedAt || 0), 0);
+};
+
 const elementi = {
   tabs: document.querySelectorAll(".tab"),
   panels: document.querySelectorAll(".panel"),
@@ -457,12 +464,17 @@ const uploadToCloud = async () => {
     setSyncStatus("Senza rete");
     return;
   }
+  if (lastCloudUpdatedAt > getLocalUpdatedAt()) {
+    setSyncStatus("Cloud piu recente");
+    await downloadFromCloud();
+    return;
+  }
   setSyncStatus("Caricamento in corso...");
   const payload = {
     investimenti: state.investimenti,
     trades: state.trades,
     promemoria: state.promemoria,
-    updatedAt: new Date().toISOString(),
+    updatedAt: Date.now(),
   };
 
   const response = await fetch(`/api/sync?key=${encodeURIComponent(getSyncKey())}`,
@@ -474,10 +486,27 @@ const uploadToCloud = async () => {
     }
   );
 
+  if (response.status === 409) {
+    const conflict = await response.json();
+    const cloudInvestimenti = conflict.data?.investimenti || [];
+    const cloudTrades = conflict.data?.trades || [];
+    const cloudPromemoria = conflict.data?.promemoria || [];
+    lastCloudUpdatedAt = conflict.updatedAt || lastCloudUpdatedAt;
+    state.investimenti = mergeById(state.investimenti, cloudInvestimenti);
+    state.trades = mergeById(state.trades, cloudTrades);
+    state.promemoria = mergeById(state.promemoria, cloudPromemoria);
+    saveData(STORAGE_KEYS.investimenti, state.investimenti);
+    saveData(STORAGE_KEYS.trades, state.trades);
+    saveData(STORAGE_KEYS.promemoria, state.promemoria);
+    aggiornaUI();
+    setSyncStatus("Cloud piu recente");
+    return;
+  }
   if (!response.ok) {
     setSyncStatus("Errore upload");
     return;
   }
+  lastCloudUpdatedAt = payload.updatedAt;
   setSyncStatus("Sincronizzato");
 };
 
@@ -499,6 +528,7 @@ const downloadFromCloud = async () => {
     setSyncStatus("Nessun dato nel cloud");
     return;
   }
+  lastCloudUpdatedAt = data.updatedAt || lastCloudUpdatedAt;
   const cloudInvestimenti = data.data.investimenti || [];
   const cloudTrades = data.data.trades || [];
   const cloudPromemoria = data.data.promemoria || [];

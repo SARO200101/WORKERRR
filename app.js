@@ -53,6 +53,39 @@ const elementi = {
   resetPromemoria: document.getElementById("reset-promemoria"),
   filterNonPagati: document.getElementById("filter-non-pagati"),
   syncStatus: document.getElementById("sync-status"),
+  promemoriaSubmit: document.getElementById("promemoria-submit"),
+  promemoriaCancel: document.getElementById("promemoria-cancel"),
+};
+
+const promemoriaFormDefaults = {
+  statoCliente: "in-lavorazione",
+  pagato: "no",
+};
+
+const setPromemoriaEditMode = (item) => {
+  if (item) {
+    elementi.formPromemoria.dataset.editId = item.id;
+    elementi.formPromemoria.data.value = item.data;
+    elementi.formPromemoria.dispositivo.value = item.dispositivo;
+    elementi.formPromemoria.intervento.value = item.intervento;
+    elementi.formPromemoria.nome.value = item.nome;
+    elementi.formPromemoria.cognome.value = item.cognome;
+    elementi.formPromemoria.costoPezzi.value = item.costoPezzi ?? 0;
+    elementi.formPromemoria.prezzoCliente.value = item.prezzoCliente ?? 0;
+    elementi.formPromemoria.statoCliente.value = item.statoCliente || "in-lavorazione";
+    elementi.formPromemoria.pagato.value = item.pagato ? "si" : "no";
+    elementi.formPromemoria.note.value = item.note || "";
+    elementi.promemoriaSubmit.textContent = "Salva modifiche";
+    elementi.promemoriaCancel.style.display = "inline-flex";
+    return;
+  }
+
+  delete elementi.formPromemoria.dataset.editId;
+  elementi.formPromemoria.reset();
+  elementi.formPromemoria.statoCliente.value = promemoriaFormDefaults.statoCliente;
+  elementi.formPromemoria.pagato.value = promemoriaFormDefaults.pagato;
+  elementi.promemoriaSubmit.textContent = "Aggiungi promemoria";
+  elementi.promemoriaCancel.style.display = "none";
 };
 
 const getSyncKey = () => {
@@ -202,7 +235,10 @@ const renderPromemoria = () => {
     .sort((a, b) => new Date(a.data) - new Date(b.data))
     .forEach((p) => {
       const item = document.createElement("div");
-      item.className = `item${p.completato ? "" : " is-open"}`;
+      const isGood = p.completato && p.pagato;
+      const isWarning = (p.completato && !p.pagato) || (!p.completato && p.pagato);
+      const statusClass = isGood ? " is-good" : isWarning ? " is-warning" : " is-open";
+      item.className = `item${statusClass}`;
       const statoClasse = p.completato ? "success" : "danger";
       const pagatoClasse = p.pagato ? "success" : "warning";
       item.innerHTML = `
@@ -210,6 +246,7 @@ const renderPromemoria = () => {
           <div>
             <div class="item-title">${p.dispositivo}</div>
             <div class="item-meta">${p.intervento} · ${p.data}</div>
+            <div class="item-meta">${p.nome} ${p.cognome}</div>
           </div>
           <div class="badge ${statoClasse}">${
             p.completato ? "fatto" : "aperto"
@@ -227,6 +264,10 @@ const renderPromemoria = () => {
           <div class="item-meta">Pagamento</div>
           <div class="badge ${pagatoClasse}">${p.pagato ? "pagato" : "da pagare"}</div>
         </div>
+        <div class="item-header">
+          <div class="item-meta">Stato cliente</div>
+          <div class="badge">${p.statoCliente === "attesa-cliente" ? "attesa cliente" : "in lavorazione"}</div>
+        </div>
         <div class="item-meta">${p.note || "Nessuna nota"}</div>
         <div class="item-header">
           <button class="primary" data-toggle="${p.id}">${
@@ -235,6 +276,7 @@ const renderPromemoria = () => {
           <button class="ghost" data-pay="${p.id}">${
             p.pagato ? "Segna non pagato" : "Segna pagato"
           }</button>
+          <button class="ghost" data-edit="${p.id}">Modifica</button>
           <button class="ghost" data-remove="${p.id}">Rimuovi</button>
         </div>
       `;
@@ -251,6 +293,11 @@ const renderPromemoria = () => {
         saveData(STORAGE_KEYS.promemoria, state.promemoria);
         aggiornaUI();
         scheduleUpload();
+      });
+
+      item.querySelector("[data-edit]").addEventListener("click", () => {
+        setPromemoriaEditMode(p);
+        window.scrollTo({ top: 0, behavior: "smooth" });
       });
 
       item.querySelector("[data-remove]").addEventListener("click", () => {
@@ -322,21 +369,35 @@ elementi.formTrade.addEventListener("submit", (event) => {
 elementi.formPromemoria.addEventListener("submit", (event) => {
   event.preventDefault();
   const formData = new FormData(event.target);
-  const nuovo = {
-    id: crypto.randomUUID(),
+  const editId = event.target.dataset.editId;
+  const payload = {
     data: formData.get("data"),
     dispositivo: formData.get("dispositivo"),
     intervento: formData.get("intervento"),
+    nome: formData.get("nome"),
+    cognome: formData.get("cognome"),
     costoPezzi: Number(formData.get("costoPezzi")) || 0,
     prezzoCliente: Number(formData.get("prezzoCliente")) || 0,
+    statoCliente: formData.get("statoCliente"),
     pagato: formData.get("pagato") === "si",
     note: formData.get("note"),
-    completato: false,
   };
 
-  state.promemoria.push(nuovo);
+  if (editId) {
+    const target = state.promemoria.find((p) => p.id === editId);
+    if (target) {
+      Object.assign(target, payload);
+    }
+  } else {
+    state.promemoria.push({
+      id: crypto.randomUUID(),
+      completato: false,
+      ...payload,
+    });
+  }
+
   saveData(STORAGE_KEYS.promemoria, state.promemoria);
-  event.target.reset();
+  setPromemoriaEditMode(null);
   aggiornaUI();
   scheduleUpload();
 });
@@ -363,6 +424,10 @@ elementi.resetPromemoria.addEventListener("click", () => {
   saveData(STORAGE_KEYS.promemoria, state.promemoria);
   aggiornaUI();
   scheduleUpload();
+});
+
+elementi.promemoriaCancel.addEventListener("click", () => {
+  setPromemoriaEditMode(null);
 });
 
 if ("serviceWorker" in navigator) {
@@ -439,6 +504,7 @@ window.addEventListener("online", () => setSyncStatus("Connesso"));
 window.addEventListener("offline", () => setSyncStatus("Senza rete"));
 
 getSyncKey();
+setPromemoriaEditMode(null);
 
 elementi.filterNonPagati?.addEventListener("change", renderPromemoria);
 

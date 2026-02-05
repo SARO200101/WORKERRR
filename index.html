@@ -172,12 +172,27 @@
                   <input type="text" name="intervento" placeholder="Sostituzione schermo" required />
                 </label>
                 <label>
+                  Nome
+                  <input type="text" name="nome" placeholder="Mario" required />
+                </label>
+                <label>
+                  Cognome
+                  <input type="text" name="cognome" placeholder="Rossi" required />
+                </label>
+                <label>
                   Costo pezzi (€)
                   <input type="number" name="costoPezzi" step="0.01" min="0" required />
                 </label>
                 <label>
                   Prezzo cliente (€)
                   <input type="number" name="prezzoCliente" step="0.01" min="0" required />
+                </label>
+                <label>
+                  Stato cliente
+                  <select name="statoCliente" required>
+                    <option value="in-lavorazione">In lavorazione</option>
+                    <option value="attesa-cliente">In attesa cliente</option>
+                  </select>
                 </label>
                 <label>
                   Pagato
@@ -191,7 +206,10 @@
                   <input type="text" name="note" placeholder="Ricorda pezzi, tempi, cliente" />
                 </label>
               </div>
-              <button class="primary" type="submit">Aggiungi promemoria</button>
+              <div class="form-actions">
+                <button class="primary" type="submit" id="promemoria-submit">Aggiungi promemoria</button>
+                <button class="ghost" type="button" id="promemoria-cancel">Annulla modifica</button>
+              </div>
             </form>
           </div>
 

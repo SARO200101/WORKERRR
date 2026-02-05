@@ -100,6 +100,22 @@ const getLocalUpdatedAt = () => {
   return allItems.reduce((acc, item) => Math.max(acc, item.updatedAt || 0), 0);
 };
 
+const isCloudEmpty = (payload) => {
+  if (!payload) return true;
+  const { investimenti = [], trades = [], promemoria = [], deleted } = payload;
+  const deletedTotal = deleted
+    ? (deleted.investimenti?.length || 0) +
+      (deleted.trades?.length || 0) +
+      (deleted.promemoria?.length || 0)
+    : 0;
+  return (
+    investimenti.length === 0 &&
+    trades.length === 0 &&
+    promemoria.length === 0 &&
+    deletedTotal === 0
+  );
+};
+
 const elementi = {
   tabs: document.querySelectorAll(".tab"),
   panels: document.querySelectorAll(".panel"),
@@ -601,6 +617,21 @@ const downloadFromCloud = async () => {
   const data = await response.json();
   if (!data || !data.data) {
     setSyncStatus("Nessun dato nel cloud");
+    return;
+  }
+  if (isCloudEmpty(data.data)) {
+    state.investimenti = [];
+    state.trades = [];
+    state.promemoria = [];
+    deletedState.investimenti = [];
+    deletedState.trades = [];
+    deletedState.promemoria = [];
+    saveData(STORAGE_KEYS.investimenti, state.investimenti);
+    saveData(STORAGE_KEYS.trades, state.trades);
+    saveData(STORAGE_KEYS.promemoria, state.promemoria);
+    saveDeleted();
+    aggiornaUI();
+    setSyncStatus("Cloud vuoto, dati locali puliti");
     return;
   }
   lastCloudUpdatedAt = data.updatedAt || lastCloudUpdatedAt;

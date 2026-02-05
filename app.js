@@ -430,6 +430,15 @@ elementi.promemoriaCancel.addEventListener("click", () => {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
+    if ("caches" in window) {
+      caches.keys().then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith("officina-cache-"))
+            .map((key) => caches.delete(key))
+        )
+      );
+    }
     navigator.serviceWorker.register("sw.js");
   });
 }

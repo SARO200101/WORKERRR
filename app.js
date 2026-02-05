@@ -25,6 +25,26 @@ const saveData = (key, data) => {
   localStorage.setItem(key, JSON.stringify(data));
 };
 
+const normalizeItem = (item) => ({
+  ...item,
+  updatedAt: item.updatedAt || 0,
+});
+
+const mergeById = (localItems, cloudItems) => {
+  const map = new Map();
+  localItems.forEach((item) => {
+    map.set(item.id, normalizeItem(item));
+  });
+  cloudItems.forEach((item) => {
+    const normalized = normalizeItem(item);
+    const existing = map.get(normalized.id);
+    if (!existing || normalized.updatedAt > existing.updatedAt) {
+      map.set(normalized.id, normalized);
+    }
+  });
+  return Array.from(map.values());
+};
+
 const state = {
   investimenti: loadData(STORAGE_KEYS.investimenti),
   trades: loadData(STORAGE_KEYS.trades),
@@ -280,6 +300,7 @@ const renderPromemoria = () => {
 
       item.querySelector("[data-toggle]").addEventListener("click", () => {
         p.completato = !p.completato;
+        p.updatedAt = Date.now();
         saveData(STORAGE_KEYS.promemoria, state.promemoria);
         aggiornaUI();
         scheduleUpload();
@@ -287,6 +308,7 @@ const renderPromemoria = () => {
 
       item.querySelector("[data-pay]").addEventListener("click", () => {
         p.pagato = !p.pagato;
+        p.updatedAt = Date.now();
         saveData(STORAGE_KEYS.promemoria, state.promemoria);
         aggiornaUI();
         scheduleUpload();
@@ -335,6 +357,7 @@ elementi.formInvestimento.addEventListener("submit", (event) => {
     titolo: formData.get("titolo"),
     importo: Number(formData.get("importo")),
     note: formData.get("note"),
+    updatedAt: Date.now(),
   };
 
   state.investimenti.push(nuova);
@@ -354,6 +377,7 @@ elementi.formTrade.addEventListener("submit", (event) => {
     titolo: formData.get("titolo"),
     importo: Number(formData.get("importo")),
     note: formData.get("note"),
+    updatedAt: Date.now(),
   };
 
   state.trades.push(nuova);
@@ -378,6 +402,7 @@ elementi.formPromemoria.addEventListener("submit", (event) => {
     statoCliente: formData.get("statoCliente"),
     pagato: formData.get("pagato") === "si",
     note: formData.get("note"),
+    updatedAt: Date.now(),
   };
 
   if (editId) {
@@ -453,14 +478,18 @@ const downloadFromCloud = async () => {
     setSyncStatus("Nessun dato nel cloud");
     return;
   }
-  state.investimenti = data.data.investimenti || [];
-  state.trades = data.data.trades || [];
-  state.promemoria = data.data.promemoria || [];
+  const cloudInvestimenti = data.data.investimenti || [];
+  const cloudTrades = data.data.trades || [];
+  const cloudPromemoria = data.data.promemoria || [];
+  state.investimenti = mergeById(state.investimenti, cloudInvestimenti);
+  state.trades = mergeById(state.trades, cloudTrades);
+  state.promemoria = mergeById(state.promemoria, cloudPromemoria);
   saveData(STORAGE_KEYS.investimenti, state.investimenti);
   saveData(STORAGE_KEYS.trades, state.trades);
   saveData(STORAGE_KEYS.promemoria, state.promemoria);
   aggiornaUI();
   setSyncStatus("Sincronizzato");
+  scheduleUpload();
 };
 
 const scheduleUpload = (() => {

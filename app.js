@@ -129,6 +129,7 @@ const elementi = {
   totaleDaIncassare: document.getElementById("totale-da-incassare"),
   totaleMargine: document.getElementById("totale-margine"),
   filterNonPagati: document.getElementById("filter-non-pagati"),
+  filterAperti: document.getElementById("filter-aperti"),
   syncStatus: document.getElementById("sync-status"),
   promemoriaSubmit: document.getElementById("promemoria-submit"),
   promemoriaCancel: document.getElementById("promemoria-cancel"),
@@ -151,6 +152,9 @@ const setPromemoriaEditMode = (item) => {
     elementi.formPromemoria.prezzoCliente.value = item.prezzoCliente ?? 0;
     elementi.formPromemoria.statoCliente.value = item.statoCliente || "in-lavorazione";
     elementi.formPromemoria.pagato.value = item.pagato ? "si" : "no";
+    elementi.formPromemoria.analisiFatta.checked = !!item.analisiFatta;
+    elementi.formPromemoria.prodottiOrdinati.checked = !!item.prodottiOrdinati;
+    elementi.formPromemoria.prodottiArrivati.checked = !!item.prodottiArrivati;
     elementi.formPromemoria.note.value = item.note || "";
     elementi.promemoriaSubmit.textContent = "Salva modifiche";
     elementi.promemoriaCancel.style.display = "inline-flex";
@@ -161,6 +165,9 @@ const setPromemoriaEditMode = (item) => {
   elementi.formPromemoria.reset();
   elementi.formPromemoria.statoCliente.value = promemoriaFormDefaults.statoCliente;
   elementi.formPromemoria.pagato.value = promemoriaFormDefaults.pagato;
+  elementi.formPromemoria.analisiFatta.checked = false;
+  elementi.formPromemoria.prodottiOrdinati.checked = false;
+  elementi.formPromemoria.prodottiArrivati.checked = false;
   elementi.promemoriaSubmit.textContent = "Aggiungi promemoria";
   elementi.promemoriaCancel.style.display = "none";
 };
@@ -300,9 +307,12 @@ const renderTrades = () => {
 const renderPromemoria = () => {
   elementi.listaPromemoria.innerHTML = "";
   const mostraSoloNonPagati = elementi.filterNonPagati?.checked;
-  const promemoriaFiltrati = mostraSoloNonPagati
-    ? state.promemoria.filter((p) => !p.pagato)
-    : state.promemoria;
+  const mostraSoloAperti = elementi.filterAperti?.checked;
+  const promemoriaFiltrati = state.promemoria.filter((p) => {
+    if (mostraSoloNonPagati && p.pagato) return false;
+    if (mostraSoloAperti && p.completato) return false;
+    return true;
+  });
 
   if (promemoriaFiltrati.length === 0) {
     elementi.listaPromemoria.innerHTML = mostraSoloNonPagati
@@ -313,7 +323,12 @@ const renderPromemoria = () => {
 
   promemoriaFiltrati
     .slice()
-    .sort((a, b) => new Date(a.data) - new Date(b.data))
+    .sort((a, b) => {
+      const aClosed = a.completato && a.pagato ? 1 : 0;
+      const bClosed = b.completato && b.pagato ? 1 : 0;
+      if (aClosed !== bClosed) return aClosed - bClosed;
+      return new Date(a.data) - new Date(b.data);
+    })
     .forEach((p) => {
       const item = document.createElement("div");
       const isGood = p.completato && p.pagato;
@@ -322,6 +337,9 @@ const renderPromemoria = () => {
       item.className = `item${statusClass}`;
       const statoClasse = p.completato ? "success" : "danger";
       const pagatoClasse = p.pagato ? "success" : "warning";
+      const analisiClasse = p.analisiFatta ? " is-active" : "";
+      const ordinatiClasse = p.prodottiOrdinati ? " is-active" : "";
+      const arrivatiClasse = p.prodottiArrivati ? " is-active" : "";
       item.innerHTML = `
         <div class="item-header">
           <div>
@@ -344,10 +362,18 @@ const renderPromemoria = () => {
         <div class="item-header">
           <div class="item-meta">Pagamento</div>
           <div class="badge ${pagatoClasse}">${p.pagato ? "pagato" : "da pagare"}</div>
+            <button class="step-toggle${analisiClasse}" data-step="analisiFatta" type="button">analisi</button>
+            <button class="step-toggle${ordinatiClasse}" data-step="prodottiOrdinati" type="button">ordinati</button>
+            <button class="step-toggle${arrivatiClasse}" data-step="prodottiArrivati" type="button">arrivati</button>
+          <div class="badge">${p.statoCliente === "attesa-cliente" ? "attesa cliente" : "in lavorazione"}</div>
         </div>
         <div class="item-header">
-          <div class="item-meta">Stato cliente</div>
-          <div class="badge">${p.statoCliente === "attesa-cliente" ? "attesa cliente" : "in lavorazione"}</div>
+          <div class="item-meta">Avanzamento</div>
+          <button class="primary" data-toggle="${p.id}">${
+            <div class="badge ${analisiClasse}">analisi</div>
+            <div class="badge ${ordinatiClasse}">ordinati</div>
+            <div class="badge ${arrivatiClasse}">arrivati</div>
+          </div>
         </div>
         <div class="item-meta">${p.note || "Nessuna nota"}</div>
         <div class="item-header">
@@ -367,6 +393,16 @@ const renderPromemoria = () => {
         p.updatedAt = Date.now();
         aggiornaUI();
         scheduleUpload();
+      });
+
+      item.querySelectorAll("[data-step]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const step = button.dataset.step;
+          p[step] = !p[step];
+          p.updatedAt = Date.now();
+          aggiornaUI();
+          scheduleUpload();
+        });
       });
 
       item.querySelector("[data-pay]").addEventListener("click", () => {
@@ -461,6 +497,9 @@ elementi.formPromemoria.addEventListener("submit", (event) => {
     prezzoCliente: Number(formData.get("prezzoCliente")) || 0,
     statoCliente: formData.get("statoCliente"),
     pagato: formData.get("pagato") === "si",
+    analisiFatta: formData.get("analisiFatta") === "on",
+    prodottiOrdinati: formData.get("prodottiOrdinati") === "on",
+    prodottiArrivati: formData.get("prodottiArrivati") === "on",
     note: formData.get("note"),
     updatedAt: Date.now(),
   };
@@ -474,6 +513,9 @@ elementi.formPromemoria.addEventListener("submit", (event) => {
     state.promemoria.push({
       id: crypto.randomUUID(),
       completato: false,
+      analisiFatta: false,
+      prodottiOrdinati: false,
+      prodottiArrivati: false,
       ...payload,
     });
   }
@@ -667,6 +709,7 @@ getSyncKey();
 setPromemoriaEditMode(null);
 
 elementi.filterNonPagati?.addEventListener("change", renderPromemoria);
+elementi.filterAperti?.addEventListener("change", renderPromemoria);
 
 initTabs();
 aggiornaUI();

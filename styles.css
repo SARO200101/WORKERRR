@@ -183,6 +183,13 @@ label {
   gap: 8px;
 }
 
+.field-label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
 input,
 select {
   padding: 10px 12px;
@@ -202,6 +209,27 @@ select {
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 16px;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.checkbox-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-strong);
+  color: var(--text);
+}
+
+.checkbox-item input {
+  margin: 0;
 }
 
 #promemoria-cancel {
@@ -316,6 +344,33 @@ button:hover {
   font-weight: 600;
   background: rgba(148, 163, 184, 0.35);
   color: #e2e8f0;
+}
+
+.badge-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.step-toggle {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.step-toggle.is-active {
+  background: var(--success);
+  color: #052e16;
+  border-color: rgba(34, 197, 94, 0.6);
+}
+
+.step-toggle:hover {
+  transform: none;
 }
 
 .badge.success {

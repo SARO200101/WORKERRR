@@ -1,9 +1,9 @@
-const CACHE_NAME = "officina-cache-v23";
+const CACHE_NAME = "officina-cache-v24";
 const ASSETS = [
   "/",
   "/index.html",
   "/styles.css",
-  "/app.js",
+  "/app.js?v=24",
   "/manifest.json",
   "/icons/icon-192.svg",
   "/icons/icon-512.svg"

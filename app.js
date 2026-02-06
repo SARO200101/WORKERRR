@@ -68,12 +68,14 @@ const state = {
   investimenti: [],
   trades: [],
   promemoria: [],
+  valoriMensili: [],
 };
 
 const deletedState = {
   investimenti: [],
   trades: [],
   promemoria: [],
+  valoriMensili: [],
 };
 
 const saveDeleted = () => {};
@@ -81,11 +83,17 @@ const saveDeleted = () => {};
 let lastCloudUpdatedAt = 0;
 
 const getLocalUpdatedAt = () => {
-  const allItems = [...state.investimenti, ...state.trades, ...state.promemoria];
+  const allItems = [
+    ...state.investimenti,
+    ...state.trades,
+    ...state.promemoria,
+    ...state.valoriMensili,
+  ];
   const allDeletes = [
     ...deletedState.investimenti,
     ...deletedState.trades,
     ...deletedState.promemoria,
+    ...deletedState.valoriMensili,
   ];
   const maxItems = allItems.reduce((acc, item) => Math.max(acc, item.updatedAt || 0), 0);
   const maxDeletes = allDeletes.reduce(
@@ -97,16 +105,18 @@ const getLocalUpdatedAt = () => {
 
 const isCloudEmpty = (payload) => {
   if (!payload) return true;
-  const { investimenti = [], trades = [], promemoria = [], deleted } = payload;
+  const { investimenti = [], trades = [], promemoria = [], valoriMensili = [], deleted } = payload;
   const deletedTotal = deleted
     ? (deleted.investimenti?.length || 0) +
       (deleted.trades?.length || 0) +
-      (deleted.promemoria?.length || 0)
+      (deleted.promemoria?.length || 0) +
+      (deleted.valoriMensili?.length || 0)
     : 0;
   return (
     investimenti.length === 0 &&
     trades.length === 0 &&
     promemoria.length === 0 &&
+    valoriMensili.length === 0 &&
     deletedTotal === 0
   );
 };
@@ -118,6 +128,8 @@ const elementi = {
   listaInvestimenti: document.getElementById("lista-investimenti"),
   formTrade: document.getElementById("form-trade"),
   listaTrades: document.getElementById("lista-trades"),
+  formMensile: document.getElementById("form-mensile"),
+  listaMensile: document.getElementById("lista-mensile"),
   formPromemoria: document.getElementById("form-promemoria"),
   listaPromemoria: document.getElementById("lista-promemoria"),
   totaleInvestito: document.getElementById("totale-investito"),
@@ -151,6 +163,9 @@ const setPromemoriaEditMode = (item) => {
     elementi.formPromemoria.prezzoCliente.value = item.prezzoCliente ?? 0;
     elementi.formPromemoria.statoCliente.value = item.statoCliente || "in-lavorazione";
     elementi.formPromemoria.pagato.value = item.pagato ? "si" : "no";
+    elementi.formPromemoria.analisiFatta.checked = !!item.analisiFatta;
+    elementi.formPromemoria.prodottiOrdinati.checked = !!item.prodottiOrdinati;
+    elementi.formPromemoria.prodottiArrivati.checked = !!item.prodottiArrivati;
     elementi.formPromemoria.note.value = item.note || "";
     elementi.promemoriaSubmit.textContent = "Salva modifiche";
     elementi.promemoriaCancel.style.display = "inline-flex";
@@ -161,6 +176,9 @@ const setPromemoriaEditMode = (item) => {
   elementi.formPromemoria.reset();
   elementi.formPromemoria.statoCliente.value = promemoriaFormDefaults.statoCliente;
   elementi.formPromemoria.pagato.value = promemoriaFormDefaults.pagato;
+  elementi.formPromemoria.analisiFatta.checked = false;
+  elementi.formPromemoria.prodottiOrdinati.checked = false;
+  elementi.formPromemoria.prodottiArrivati.checked = false;
   elementi.promemoriaSubmit.textContent = "Aggiungi promemoria";
   elementi.promemoriaCancel.style.display = "none";
 };
@@ -211,6 +229,26 @@ const calcolaTotali = () => {
   elementi.totaleMargine.textContent = formatCurrency(margine);
 };
 
+const formatMonth = (monthValue) => {
+  if (!monthValue) return "";
+  const [year, month] = monthValue.split("-");
+  return `${month}/${year}`;
+};
+
+const getMonthlyDeltas = (items) => {
+  const sorted = items
+    .slice()
+    .sort((a, b) => new Date(`${a.mese}-01`) - new Date(`${b.mese}-01`));
+  const deltas = new Map();
+  let previous = null;
+  sorted.forEach((item) => {
+    const delta = previous ? item.valore - previous.valore : 0;
+    deltas.set(item.id, delta);
+    previous = item;
+  });
+  return deltas;
+};
+
 const renderInvestimenti = () => {
   elementi.listaInvestimenti.innerHTML = "";
 
@@ -250,6 +288,52 @@ const renderInvestimenti = () => {
       });
 
       elementi.listaInvestimenti.appendChild(item);
+    });
+};
+
+const renderValoriMensili = () => {
+  elementi.listaMensile.innerHTML = "";
+
+  if (state.valoriMensili.length === 0) {
+    elementi.listaMensile.innerHTML =
+      '<p class="item-meta">Nessun valore mensile registrato.</p>';
+    return;
+  }
+
+  const deltas = getMonthlyDeltas(state.valoriMensili);
+
+  state.valoriMensili
+    .slice()
+    .sort((a, b) => new Date(`${b.mese}-01`) - new Date(`${a.mese}-01`))
+    .forEach((item) => {
+      const delta = deltas.get(item.id) || 0;
+      const deltaClass = delta >= 0 ? "success" : "danger";
+      const deltaLabel = delta >= 0 ? `+ ${formatCurrency(delta)}` : formatCurrency(delta);
+      const entry = document.createElement("div");
+      entry.className = "item";
+      entry.innerHTML = `
+        <div class="item-header">
+          <div>
+            <div class="item-title">${formatMonth(item.mese)}</div>
+            <div class="item-meta">${item.note || "Nessuna nota"}</div>
+          </div>
+          <div class="badge ${deltaClass}">${deltaLabel}</div>
+        </div>
+        <div class="item-header">
+          <div class="item-meta">Valore al 01</div>
+          <strong>${formatCurrency(item.valore)}</strong>
+        </div>
+        <button class="ghost" data-remove="${item.id}">Rimuovi</button>
+      `;
+
+      entry.querySelector("button").addEventListener("click", () => {
+        state.valoriMensili = state.valoriMensili.filter((x) => x.id !== item.id);
+        deletedState.valoriMensili.push({ id: item.id, deletedAt: Date.now() });
+        aggiornaUI();
+        scheduleUpload();
+      });
+
+      elementi.listaMensile.appendChild(entry);
     });
 };
 
@@ -313,7 +397,12 @@ const renderPromemoria = () => {
 
   promemoriaFiltrati
     .slice()
-    .sort((a, b) => new Date(a.data) - new Date(b.data))
+    .sort((a, b) => {
+      const aRank = a.completato && a.pagato ? 2 : a.completato || a.pagato ? 1 : 0;
+      const bRank = b.completato && b.pagato ? 2 : b.completato || b.pagato ? 1 : 0;
+      if (aRank !== bRank) return aRank - bRank;
+      return new Date(a.data) - new Date(b.data);
+    })
     .forEach((p) => {
       const item = document.createElement("div");
       const isGood = p.completato && p.pagato;
@@ -322,6 +411,9 @@ const renderPromemoria = () => {
       item.className = `item${statusClass}`;
       const statoClasse = p.completato ? "success" : "danger";
       const pagatoClasse = p.pagato ? "success" : "warning";
+      const analisiClasse = p.analisiFatta ? "success" : "";
+      const ordinatiClasse = p.prodottiOrdinati ? "success" : "";
+      const arrivatiClasse = p.prodottiArrivati ? "success" : "";
       item.innerHTML = `
         <div class="item-header">
           <div>
@@ -348,6 +440,14 @@ const renderPromemoria = () => {
         <div class="item-header">
           <div class="item-meta">Stato cliente</div>
           <div class="badge">${p.statoCliente === "attesa-cliente" ? "attesa cliente" : "in lavorazione"}</div>
+        </div>
+        <div class="item-header">
+          <div class="item-meta">Avanzamento</div>
+          <div class="badge-group">
+            <div class="badge ${analisiClasse}">analisi</div>
+            <div class="badge ${ordinatiClasse}">ordinati</div>
+            <div class="badge ${arrivatiClasse}">arrivati</div>
+          </div>
         </div>
         <div class="item-meta">${p.note || "Nessuna nota"}</div>
         <div class="item-header">
@@ -395,6 +495,7 @@ const renderPromemoria = () => {
 const aggiornaUI = () => {
   calcolaTotali();
   renderInvestimenti();
+  renderValoriMensili();
   renderTrades();
   renderPromemoria();
 };
@@ -447,6 +548,23 @@ elementi.formTrade.addEventListener("submit", (event) => {
   scheduleUpload();
 });
 
+elementi.formMensile.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const nuova = {
+    id: crypto.randomUUID(),
+    mese: formData.get("mese"),
+    valore: Number(formData.get("valore")) || 0,
+    note: formData.get("note"),
+    updatedAt: Date.now(),
+  };
+
+  state.valoriMensili.push(nuova);
+  event.target.reset();
+  aggiornaUI();
+  scheduleUpload();
+});
+
 elementi.formPromemoria.addEventListener("submit", (event) => {
   event.preventDefault();
   const formData = new FormData(event.target);
@@ -461,6 +579,9 @@ elementi.formPromemoria.addEventListener("submit", (event) => {
     prezzoCliente: Number(formData.get("prezzoCliente")) || 0,
     statoCliente: formData.get("statoCliente"),
     pagato: formData.get("pagato") === "si",
+    analisiFatta: formData.get("analisiFatta") === "on",
+    prodottiOrdinati: formData.get("prodottiOrdinati") === "on",
+    prodottiArrivati: formData.get("prodottiArrivati") === "on",
     note: formData.get("note"),
     updatedAt: Date.now(),
   };
@@ -474,6 +595,9 @@ elementi.formPromemoria.addEventListener("submit", (event) => {
     state.promemoria.push({
       id: crypto.randomUUID(),
       completato: false,
+      analisiFatta: false,
+      prodottiOrdinati: false,
+      prodottiArrivati: false,
       ...payload,
     });
   }
@@ -521,6 +645,7 @@ const uploadToCloud = async () => {
     investimenti: state.investimenti,
     trades: state.trades,
     promemoria: state.promemoria,
+    valoriMensili: state.valoriMensili,
     deleted: deletedState,
     updatedAt: Date.now(),
   };
@@ -539,10 +664,12 @@ const uploadToCloud = async () => {
     const cloudInvestimenti = conflict.data?.investimenti || [];
     const cloudTrades = conflict.data?.trades || [];
     const cloudPromemoria = conflict.data?.promemoria || [];
+    const cloudValoriMensili = conflict.data?.valoriMensili || [];
     const cloudDeleted = conflict.data?.deleted || {
       investimenti: [],
       trades: [],
       promemoria: [],
+      valoriMensili: [],
     };
     lastCloudUpdatedAt = conflict.updatedAt || lastCloudUpdatedAt;
     deletedState.investimenti = mergeTombstones(
@@ -557,6 +684,10 @@ const uploadToCloud = async () => {
       deletedState.promemoria,
       cloudDeleted.promemoria
     );
+    deletedState.valoriMensili = mergeTombstones(
+      deletedState.valoriMensili,
+      cloudDeleted.valoriMensili
+    );
     state.investimenti = mergeById(
       state.investimenti,
       cloudInvestimenti,
@@ -567,6 +698,11 @@ const uploadToCloud = async () => {
       state.promemoria,
       cloudPromemoria,
       deletedState.promemoria
+    );
+    state.valoriMensili = mergeById(
+      state.valoriMensili,
+      cloudValoriMensili,
+      deletedState.valoriMensili
     );
     aggiornaUI();
     setSyncStatus("Cloud piu recente");
@@ -606,9 +742,11 @@ const downloadFromCloud = async () => {
     state.investimenti = [];
     state.trades = [];
     state.promemoria = [];
+    state.valoriMensili = [];
     deletedState.investimenti = [];
     deletedState.trades = [];
     deletedState.promemoria = [];
+    deletedState.valoriMensili = [];
     aggiornaUI();
     setSyncStatus("Cloud vuoto, dati locali puliti");
     return;
@@ -617,10 +755,12 @@ const downloadFromCloud = async () => {
   const cloudInvestimenti = data.data.investimenti || [];
   const cloudTrades = data.data.trades || [];
   const cloudPromemoria = data.data.promemoria || [];
+  const cloudValoriMensili = data.data.valoriMensili || [];
   const cloudDeleted = data.data.deleted || {
     investimenti: [],
     trades: [],
     promemoria: [],
+    valoriMensili: [],
   };
   deletedState.investimenti = mergeTombstones(
     deletedState.investimenti,
@@ -634,6 +774,10 @@ const downloadFromCloud = async () => {
     deletedState.promemoria,
     cloudDeleted.promemoria
   );
+  deletedState.valoriMensili = mergeTombstones(
+    deletedState.valoriMensili,
+    cloudDeleted.valoriMensili
+  );
   state.investimenti = mergeById(
     state.investimenti,
     cloudInvestimenti,
@@ -644,6 +788,11 @@ const downloadFromCloud = async () => {
     state.promemoria,
     cloudPromemoria,
     deletedState.promemoria
+  );
+  state.valoriMensili = mergeById(
+    state.valoriMensili,
+    cloudValoriMensili,
+    deletedState.valoriMensili
   );
   aggiornaUI();
   setSyncStatus("Sincronizzato");

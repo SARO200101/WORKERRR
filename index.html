@@ -75,6 +75,34 @@
             </div>
             <div id="lista-investimenti" class="list"></div>
           </div>
+
+          <div class="form-section">
+            <h3>Valore azioni mensile</h3>
+            <form id="form-mensile" autocomplete="off">
+              <div class="grid">
+                <label>
+                  Mese
+                  <input type="month" name="mese" required />
+                </label>
+                <label>
+                  Valore azioni al 01 (€)
+                  <input type="number" name="valore" step="0.01" min="0" required />
+                </label>
+                <label class="full">
+                  Note
+                  <input type="text" name="note" placeholder="Esempio: valore portafoglio" />
+                </label>
+              </div>
+              <button class="primary" type="submit">Aggiungi valore</button>
+            </form>
+          </div>
+
+          <div class="list-section">
+            <div class="section-header">
+              <h3>Storico valori mensili</h3>
+            </div>
+            <div id="lista-mensile" class="list"></div>
+          </div>
         </section>
 
         <section class="panel" id="trades" role="tabpanel">
@@ -199,6 +227,23 @@
                     <option value="si">Si</option>
                   </select>
                 </label>
+                <div class="full">
+                  <span class="field-label">Avanzamento</span>
+                  <div class="checkbox-group">
+                    <label class="checkbox-item">
+                      <input type="checkbox" name="analisiFatta" />
+                      Analisi fatta
+                    </label>
+                    <label class="checkbox-item">
+                      <input type="checkbox" name="prodottiOrdinati" />
+                      Prodotti ordinati
+                    </label>
+                    <label class="checkbox-item">
+                      <input type="checkbox" name="prodottiArrivati" />
+                      Prodotti arrivati
+                    </label>
+                  </div>
+                </div>
                 <label class="full">
                   Note
                   <input type="text" name="note" placeholder="Ricorda pezzi, tempi, cliente" />
@@ -227,6 +272,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=24"></script>
+    <script src="app.js?v=25"></script>
   </body>
 </html>
